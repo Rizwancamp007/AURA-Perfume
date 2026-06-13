@@ -25,6 +25,7 @@ import paymentRoutes from './routes/payment.routes.js';
 import reviewRoutes from './routes/review.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import promoRoutes from './routes/promo.routes.js';
+import messageRoutes from './routes/message.routes.js';
 
 // Load Env variables
 dotenv.config();
@@ -112,6 +113,7 @@ app.use('/api/payment', paymentRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/promo', promoRoutes);
+app.use('/api/messages', messageRoutes);
 
 // Root Hello route
 app.get('/', (req, res) => {

@@ -1,18 +1,28 @@
 import React, { useState } from 'react';
-import { Send, Phone, MessageSquare, Mail } from 'lucide-react';
+import { Send, MessageSquare, Mail } from 'lucide-react';
 import toast from 'react-hot-toast';
+import api from '../services/api';
 
 export default function Contact() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    toast.success('Your message has been delivered to AURA Concierge. We will reply within 24 hours.');
-    setName('');
-    setEmail('');
-    setMessage('');
+    setLoading(true);
+    try {
+      await api.post('/messages', { name, email, message });
+      toast.success('Your message has been delivered to AURA Concierge. We will reply within 24 hours.');
+      setName('');
+      setEmail('');
+      setMessage('');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to send message. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (

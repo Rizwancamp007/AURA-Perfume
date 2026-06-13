@@ -19,8 +19,8 @@ const router = express.Router();
 
 // Public Routes
 router.get('/', getProducts);
-router.get('/:slug', getProductBySlug);
 router.get('/id/:id', getProductById);
+router.get('/:slug', getProductBySlug);
 
 // Admin Routes (Create, Update, Delete)
 router.post(

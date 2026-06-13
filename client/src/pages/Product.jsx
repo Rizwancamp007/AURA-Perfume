@@ -1,57 +1,13 @@
-import React, { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { ShoppingCart, Star, Sparkles, HelpCircle, Check } from 'lucide-react';
+import { ShoppingCart, Star, Sparkles, HelpCircle, Check, Send } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { addToCart } from '../store/cartSlice';
 import BottleViewer from '../components/BottleViewer';
 import SEO from '../components/layout/SEO';
-
-const MOCK_PRODUCTS = {
-  'man_perfume_1': {
-    _id: 'man_perfume_1',
-    name: 'NIGHT ODYSSEY',
-    category: 'man',
-    tagline: 'Bold & Mysterious Wood',
-    price: 6800,
-    images: ['https://images.unsplash.com/photo-1541643600914-78b084683601?auto=format&fit=crop&q=80&w=800'],
-    description: 'A deep, rich oriental blend with layers of Cambodian Oud, Amberwood, and pink pepper. Specially blended for cold evening statements. Formulated to persist on the wearer for up to 12 hours.',
-    scentNotes: {
-      top: ['Pink Pepper', 'Bergamot', 'Grapefruit'],
-      heart: ['Lavender', 'Saffron', 'Cinnamon'],
-      base: ['Cambodian Oud', 'Amberwood', 'Tobacco', 'Leather']
-    }
-  },
-  'woman_perfume_1': {
-    _id: 'woman_perfume_1',
-    name: 'ROSE IMPÉRIAL',
-    category: 'woman',
-    tagline: 'Sensual Velvet Rose',
-    price: 7200,
-    images: ['https://images.unsplash.com/photo-1592945403244-b3fbafd7f539?auto=format&fit=crop&q=80&w=800'],
-    description: 'An elegant, feminine combination of pure Turkish Rose extract, white musk, and Madagascan vanilla. Drapes the wearer in a velvet floral aura. Lends a sense of royal presence.',
-    scentNotes: {
-      top: ['Bergamot', 'Mandarin Orange', 'Pear'],
-      heart: ['Turkish Rose', 'Grasse Jasmine', 'Peony'],
-      base: ['White Musk', 'Madagascan Vanilla', 'Patchouli', 'Sandalwood']
-    }
-  },
-  'unisex_perfume_1': {
-    _id: 'unisex_perfume_1',
-    name: 'OUD DE KARACHI',
-    category: 'unisex',
-    tagline: 'Warm Spice & Saffron',
-    price: 8500,
-    images: ['https://images.unsplash.com/photo-1594035910387-fea47794261f?auto=format&fit=crop&q=80&w=800'],
-    description: 'Our signature blend. Rich Persian saffron, Kashmiri tea extracts, Mysore sandalwood, and light agarwood notes. Crafted for modern connoisseurs who appreciate depth and complexity.',
-    scentNotes: {
-      top: ['Persian Saffron', 'Kashmiri Tea', 'Cardamom'],
-      heart: ['Jasmine Sambac', 'Nutmeg', 'Cloves'],
-      base: ['Mysore Sandalwood', 'Agarwood (Oud)', 'Amber', 'Patchouli']
-    }
-  }
-};
+import api from '../services/api';
 
 export default function Product() {
   const { id } = useParams();
@@ -59,18 +15,17 @@ export default function Product() {
   const dispatch = useDispatch();
   const { isAuthenticated } = useSelector(state => state.auth);
 
-  const product = MOCK_PRODUCTS[id];
+  const [product, setProduct] = useState(null);
+  const [reviews, setReviews] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  if (!product) {
-    return (
-      <div className="pt-40 min-h-screen text-center space-y-6">
-        <h2 className="font-display text-3xl text-luxury-gold">Fragrance Not Found</h2>
-        <button onClick={() => navigate('/shop')} className="btn-gold px-6 py-2 rounded text-xs">Return to Collection</button>
-      </div>
-    );
-  }
+  // Review Form States
+  const [newRating, setNewRating] = useState(5);
+  const [newTitle, setNewTitle] = useState('');
+  const [newBody, setNewBody] = useState('');
+  const [submittingReview, setSubmittingReview] = useState(false);
 
-  // State Management
+  // Configuration States
   const [quantity, setQuantity] = useState(1);
   const [wantsEngraving, setWantsEngraving] = useState(false);
   const [engravingText, setEngravingText] = useState('');
@@ -78,7 +33,33 @@ export default function Product() {
   const [activeNoteTab, setActiveNoteTab] = useState('top'); // 'top' | 'heart' | 'base'
   const [size, setSize] = useState('50ml'); // '30ml' | '50ml' | '100ml'
 
+  const fetchProductAndReviews = async () => {
+    try {
+      setLoading(true);
+      // Fetch product by ID
+      const productRes = await api.get(`/products/id/${id}`);
+      if (productRes.data.success) {
+        setProduct(productRes.data.product || productRes.data.data);
+      }
+      
+      // Fetch reviews
+      const reviewsRes = await api.get(`/reviews/product/${id}`);
+      if (reviewsRes.data.success) {
+        setReviews(reviewsRes.data.reviews || []);
+      }
+    } catch (err) {
+      toast.error('Failed to load fragrance details.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProductAndReviews();
+  }, [id]);
+
   const getProductPrice = () => {
+    if (!product) return 0;
     let p = product.price;
     if (size === '30ml') p -= 1500;
     if (size === '100ml') p += 3000;
@@ -87,7 +68,7 @@ export default function Product() {
   };
 
   const handleAddToCart = () => {
-    // Check constraints
+    if (!product) return;
     if (wantsEngraving && !engravingText.trim()) {
       toast.error('Please enter the initials or name for engraving');
       return;
@@ -100,7 +81,7 @@ export default function Product() {
     dispatch(addToCart({
       product: product._id,
       name: product.name,
-      image: product.images[0],
+      image: product.images?.[0] || '',
       price: baseSizePrice,
       quantity,
       size,
@@ -111,8 +92,54 @@ export default function Product() {
     toast.success(`${product.name} (${size}) added to cart!`);
   };
 
+  const handleReviewSubmit = async (e) => {
+    e.preventDefault();
+    if (newRating < 1 || newRating > 5) {
+      toast.error('Please select a rating between 1 and 5');
+      return;
+    }
+
+    try {
+      setSubmittingReview(true);
+      const res = await api.post(`/reviews/${id}`, {
+        rating: newRating,
+        title: newTitle,
+        body: newBody
+      });
+      if (res.data.success) {
+        toast.success('Review submitted successfully! It will appear live once approved by curation team.');
+        setNewTitle('');
+        setNewBody('');
+        setNewRating(5);
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to submit review.');
+    } finally {
+      setSubmittingReview(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-luxury-obsidian flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-luxury-gold border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="pt-40 min-h-screen text-center space-y-6">
+        <h2 className="font-display text-3xl text-luxury-gold">Fragrance Not Found</h2>
+        <button onClick={() => navigate('/shop')} className="btn-gold px-6 py-2 rounded text-xs">Return to Collection</button>
+      </div>
+    );
+  }
+
+  const notes = product.scentNotes?.[activeNoteTab] || [];
+
   return (
-    <div className="pt-28 min-h-screen max-w-7xl mx-auto px-6">
+    <div className="pt-28 min-h-screen max-w-7xl mx-auto px-6 pb-16">
       <SEO title={product.name} description={`${product.name} — ${product.tagline}. ${product.description}`} />
       
       {/* Upper Segment: Gallery and Options */}
@@ -129,7 +156,7 @@ export default function Product() {
           <div className="grid grid-cols-3 gap-4">
             <div className="aspect-square bg-luxury-slate/20 border border-luxury-gold/10 rounded overflow-hidden">
               <img 
-                src={product.images[0]} 
+                src={product.images?.[0] || 'https://images.unsplash.com/photo-1547887537-6158d64c35b3?q=80&w=600'} 
                 alt={product.name} 
                 className="w-full h-full object-cover object-center"
               />
@@ -192,7 +219,7 @@ export default function Product() {
             </div>
           </div>
 
-          {/* CUSTOM BOTTLE ENGRAVING PANEL (Premium wow factor) */}
+          {/* CUSTOM BOTTLE ENGRAVING PANEL */}
           <div className="glass-card p-5 rounded-lg border border-luxury-gold/20 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -250,7 +277,6 @@ export default function Product() {
                   </div>
                 </div>
 
-                {/* Real-time preview note */}
                 <p className="text-[9px] text-luxury-gray/60 italic leading-relaxed">
                   Note: The engraving is etched permanently into the bottle's front facet using premium laser-precision tooling.
                 </p>
@@ -289,7 +315,7 @@ export default function Product() {
 
       </div>
 
-      {/* Scent Notes Explorer representation */}
+      {/* Scent Notes Explorer */}
       <section className="py-16 border-t border-luxury-gold/10">
         <h3 className="font-display text-2xl tracking-widest text-luxury-gold text-center mb-10 uppercase">
           SCENT ANATOMY & NOTES
@@ -312,7 +338,7 @@ export default function Product() {
 
           <div className="space-y-4 min-h-[120px] flex flex-col justify-center text-center">
             <div className="flex flex-wrap gap-2 justify-center">
-              {product.scentNotes[activeNoteTab].map((note, idx) => (
+              {notes.map((note, idx) => (
                 <span key={idx} className="bg-luxury-slate border border-luxury-gold/10 px-3 py-1 rounded text-xs text-luxury-ivory font-light tracking-wide">
                   {note}
                 </span>
@@ -327,7 +353,7 @@ export default function Product() {
         </div>
       </section>
 
-      {/* 🎬 PRODUCT PROMO VIDEO (Sensory Experience via YouTube Embed) */}
+      {/* Sensory Film */}
       <section className="py-16 border-t border-luxury-gold/10 bg-luxury-slate/5">
         <h3 className="font-display text-2xl tracking-widest text-luxury-gold text-center mb-10 uppercase">
           Sensory Film
@@ -340,6 +366,133 @@ export default function Product() {
             allow="autoplay; encrypted-media"
             allowFullScreen
           ></iframe>
+        </div>
+      </section>
+
+      {/* 🌟 REVIEWS SECTION */}
+      <section className="py-16 border-t border-luxury-gold/10">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+          
+          {/* Stats & Form */}
+          <div className="space-y-4">
+            <h3 className="font-display text-2xl tracking-widest text-luxury-gold uppercase">
+              Customer Reviews
+            </h3>
+            
+            <div className="flex items-center gap-3">
+              <div className="flex text-luxury-gold">
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <Star 
+                    key={star} 
+                    className={`w-5 h-5 ${star <= Math.round(product?.avgRating || 0) ? 'fill-luxury-gold text-luxury-gold' : 'text-luxury-gray/40'}`} 
+                  />
+                ))}
+              </div>
+              <span className="text-sm font-semibold text-luxury-ivory font-mono">
+                {product?.avgRating || '0.0'} out of 5
+              </span>
+            </div>
+            
+            <p className="text-xs text-luxury-gray font-light">
+              Based on {reviews.length} curated collector review{reviews.length !== 1 ? 's' : ''}.
+            </p>
+
+            {/* Leave a review form */}
+            {isAuthenticated ? (
+              <form onSubmit={handleReviewSubmit} className="glass-card p-5 rounded-lg border border-luxury-gold/15 space-y-4 pt-6">
+                <h4 className="font-display uppercase text-xs tracking-wider text-luxury-gold font-semibold">
+                  Share Your Olfactory Review
+                </h4>
+
+                <div>
+                  <label className="block text-[9px] uppercase tracking-widest text-luxury-gray mb-1">Rating</label>
+                  <div className="flex gap-2">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => setNewRating(star)}
+                        className="text-luxury-gold hover:scale-110 transition-transform"
+                      >
+                        <Star className={`w-5 h-5 ${star <= newRating ? 'fill-luxury-gold text-luxury-gold' : 'text-luxury-gray/40'}`} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-[9px] uppercase tracking-widest text-luxury-gray mb-1">Review Title</label>
+                  <input
+                    type="text"
+                    required
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    placeholder="e.g. Masterpiece Scent"
+                    className="w-full bg-luxury-slate/30 border border-luxury-gold/20 rounded px-3 py-2 text-xs text-luxury-ivory focus:outline-none focus:border-luxury-gold"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[9px] uppercase tracking-widest text-luxury-gray mb-1">Review Body</label>
+                  <textarea
+                    required
+                    rows={3}
+                    value={newBody}
+                    onChange={(e) => setNewBody(e.target.value)}
+                    placeholder="Tell us about the scent development, longevity, and silage..."
+                    className="w-full bg-luxury-slate/30 border border-luxury-gold/20 rounded px-3 py-2 text-xs text-luxury-ivory focus:outline-none focus:border-luxury-gold"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={submittingReview}
+                  className="w-full btn-gold py-2 rounded text-[10px] tracking-widest uppercase flex items-center justify-center gap-1.5"
+                >
+                  {submittingReview ? 'Submitting...' : 'Submit Review'}
+                </button>
+              </form>
+            ) : (
+              <div className="glass-card p-4 rounded-lg border border-luxury-gold/5 text-center text-xs text-luxury-gray font-light">
+                Please <Link to="/account" className="text-luxury-gold hover:underline">login</Link> to share your review of this fragrance.
+              </div>
+            )}
+
+          </div>
+
+          {/* Reviews List */}
+          <div className="lg:col-span-2 space-y-6">
+            {reviews.length === 0 ? (
+              <div className="glass-card p-12 text-center text-luxury-gray font-light text-xs uppercase tracking-widest">
+                No reviews yet. Be the first to share your experience!
+              </div>
+            ) : (
+              reviews.map((rev) => (
+                <div key={rev._id} className="border-b border-luxury-gold/5 pb-6 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex text-luxury-gold mb-1">
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star 
+                            key={star} 
+                            className={`w-3.5 h-3.5 ${star <= rev.rating ? 'fill-luxury-gold text-luxury-gold' : 'text-luxury-gray/20'}`} 
+                          />
+                        ))}
+                      </div>
+                      <h4 className="font-semibold text-luxury-ivory text-sm">{rev.title}</h4>
+                      <p className="text-[10px] text-luxury-gray font-light mt-0.5">
+                        By <span className="text-luxury-gold font-medium">{rev.user?.name || 'Verified Collector'}</span> on {new Date(rev.createdAt).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="text-xs text-luxury-gray font-light leading-relaxed whitespace-pre-wrap">
+                    {rev.body}
+                  </p>
+                </div>
+              ))
+            )}
+          </div>
+
         </div>
       </section>
 
