@@ -55,14 +55,25 @@ app.use(helmet({
 
 // CORS setup
 const allowedOrigins = [
-  process.env.CLIENT_URL || 'http://localhost:3000',
-  'http://localhost:3000'
-];
+  process.env.CLIENT_URL,
+  'http://localhost:3000',
+  'http://localhost:5173'
+].filter(Boolean);
 
 app.use(cors({
   origin: (origin, callback) => {
     // Allow server-to-server or Postman requests (origin is undefined)
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    // Check if origin is explicitly in allowedOrigins
+    const isAllowed = allowedOrigins.some(allowed => origin === allowed || origin.startsWith(allowed));
+    
+    // Also allow any dynamic vercel.app subdomains / preview branches
+    const isVercel = origin.endsWith('.vercel.app') || origin.includes('vercel.app');
+    
+    if (isAllowed || isVercel) {
       callback(null, true);
     } else {
       callback(new Error('Blocked by CORS policy'));
