@@ -3,7 +3,8 @@
 AURA is a high-end MERN-stack e-commerce web application featuring a bespoke editorial aesthetic, interactive 3D bottle engravers, custom particle engines, and a multi-step courier checkout.
 
 ---
-
+## Live Deployed Link
+   **https://aura-perfume-tau.vercel.app/
 ## ✨ Features
 
 * **3D Interactive Bottle Engraver**: Rotate the bottle in 3D (React Three Fiber) with real-time cursor tracking. Enter custom initials and choose elegant fonts to see them projected instantly onto the glass decal.
